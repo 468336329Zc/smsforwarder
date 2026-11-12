@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">短信转发器</string>
+    <string name="title_bot_list">机器人管理</string>
+    <string name="title_bot_edit">添加机器人</string>
+    <string name="title_log">运行日志</string>
+    <string name="notification_service_label">短信通知监听服务</string>
+</resources>
