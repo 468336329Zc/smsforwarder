@@ -13,20 +13,19 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="12dp"
+        android:paddingStart="14dp"
         android:paddingTop="10dp"
-        android:paddingEnd="4dp"
+        android:paddingEnd="2dp"
         android:paddingBottom="10dp">
 
         <ImageView
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="@drawable/bg_circle"
-            android:backgroundTint="@color/icon_purple"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_avatar_square"
             android:contentDescription="机器人"
-            android:padding="10dp"
-            android:src="@android:drawable/ic_menu_manage"
-            android:tint="@android:color/white" />
+            android:padding="11dp"
+            android:src="@drawable/ic_robot"
+            android:tint="@color/purple_primary" />
 
         <LinearLayout
             android:layout_width="0dp"
@@ -67,7 +66,7 @@
             android:layout_height="38dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="测试发送"
-            android:src="@android:drawable/ic_menu_send"
+            android:src="@drawable/ic_send"
             android:tint="@color/purple_primary" />
 
         <ImageButton
@@ -76,7 +75,7 @@
             android:layout_height="38dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="更多操作"
-            android:src="@android:drawable/ic_menu_more"
+            android:src="@drawable/ic_more_vert"
             android:tint="@color/text_secondary" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

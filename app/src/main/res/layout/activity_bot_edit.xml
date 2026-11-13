@@ -222,14 +222,17 @@
                         android:layout_marginTop="8dp"
                         android:orientation="vertical" />
 
-                    <com.google.android.material.button.MaterialButton
+                    <TextView
                         android:id="@+id/btnAddGroup"
-                        style="@style/Widget.MaterialComponents.Button.TextButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="＋ 新增条件组"
-                        android:textSize="13sp" />
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_outline_dashed"
+                        android:gravity="center"
+                        android:text="+ 新增条件组（或）"
+                        android:textColor="@color/purple_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
 
                     <View
                         android:layout_width="match_parent"

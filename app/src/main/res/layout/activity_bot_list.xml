@@ -12,7 +12,7 @@
         android:paddingStart="12dp"
         android:paddingTop="12dp"
         android:paddingEnd="12dp"
-        android:paddingBottom="90dp" />
+        android:paddingBottom="96dp" />
 
     <TextView
         android:id="@+id/tvEmptyBots"
@@ -33,5 +33,5 @@
         android:layout_gravity="bottom|end"
         android:layout_margin="20dp"
         android:contentDescription="添加机器人"
-        android:src="@android:drawable/ic_input_add" />
+        android:src="@drawable/ic_add" />
 </FrameLayout>

@@ -312,7 +312,7 @@
                         android:backgroundTint="@color/icon_green"
                         android:contentDescription="测试转发"
                         android:padding="8dp"
-                        android:src="@android:drawable/ic_menu_send"
+                        android:src="@drawable/ic_send"
                         android:tint="@android:color/white" />
 
                     <TextView
@@ -354,7 +354,7 @@
                         android:backgroundTint="@color/icon_blue"
                         android:contentDescription="机器人管理"
                         android:padding="8dp"
-                        android:src="@android:drawable/ic_menu_manage"
+                        android:src="@drawable/ic_robot"
                         android:tint="@android:color/white" />
 
                     <TextView
@@ -446,7 +446,7 @@
                         android:backgroundTint="@color/purple_dark"
                         android:contentDescription="运行日志"
                         android:padding="8dp"
-                        android:src="@android:drawable/ic_dialog_info"
+                        android:src="@drawable/ic_log"
                         android:tint="@android:color/white" />
 
                     <TextView

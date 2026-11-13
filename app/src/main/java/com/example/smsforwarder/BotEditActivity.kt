@@ -120,7 +120,7 @@ class BotEditActivity : AppCompatActivity() {
     private fun renderAny() {
         binding.llAnyContainer.removeAllViews()
         val groupView = inflateGroupBlock()
-        groupView.tvGroupTitle.text = "任一关键词命中即转发"
+        groupView.tvGroupTitle.text = "任一关键词命中即转发（或）"
         groupView.tvRemoveGroup.visibility = View.GONE
         bindTerms(groupView, anyTerms)
         binding.llAnyContainer.addView(groupView.root)
@@ -129,8 +129,13 @@ class BotEditActivity : AppCompatActivity() {
     private fun renderGroups() {
         binding.llGroups.removeAllViews()
         groups.forEachIndexed { index, terms ->
+            if (index > 0) {
+                binding.llGroups.addView(
+                    LayoutInflater.from(this).inflate(R.layout.view_rule_or, binding.llGroups, false)
+                )
+            }
             val groupView = inflateGroupBlock()
-            groupView.tvGroupTitle.text = "条件组 ${index + 1}"
+            groupView.tvGroupTitle.text = "条件组 ${index + 1} · 组内需同时满足"
             groupView.tvRemoveGroup.visibility = if (groups.size > 1) View.VISIBLE else View.GONE
             groupView.tvRemoveGroup.setOnClickListener {
                 groups.removeAt(index)
