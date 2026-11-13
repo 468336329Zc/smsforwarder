@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
 import com.example.smsforwarder.util.AppLogger
-import com.example.smsforwarder.util.MessageDeduplicator
 import com.example.smsforwarder.util.SecurityUtils
 
 class SmsReceiver : BroadcastReceiver() {
@@ -43,8 +42,10 @@ class SmsReceiver : BroadcastReceiver() {
                 TAG,
                 "广播捕获短信 - 发送者: ${SecurityUtils.maskSensitiveContent(sender)}, 内容: ${SecurityUtils.maskSensitiveContent(fullContent)}"
             )
-            if (!MessageDeduplicator.isNewMessage(sender, fullContent)) continue
-            SmsForwardService.startForward(context, sender, fullContent, timestamp, fromNotificationTitle = false)
+            SmsForwardService.startForward(
+                context, sender, fullContent, timestamp,
+                fromNotificationTitle = false, channel = "系统广播"
+            )
         }
     }
 }

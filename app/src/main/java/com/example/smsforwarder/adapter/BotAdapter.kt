@@ -30,7 +30,7 @@ class BotAdapter(
     inner class BotViewHolder(private val binding: ItemBotBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(bot: QuantumBot) {
             binding.tvBotName.text = bot.name
-            binding.tvBotKeywords.text = "关键词: ${bot.keywords.ifBlank { "全部短信" }}"
+            binding.tvBotKeywords.text = "关键词: ${bot.getRule().summary()}"
             binding.switchEnabled.setOnCheckedChangeListener(null)
             binding.switchEnabled.isChecked = bot.isEnabled
             binding.switchEnabled.setOnCheckedChangeListener { _, checked -> onToggle(bot, checked) }

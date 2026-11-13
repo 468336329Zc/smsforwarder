@@ -13,4 +13,9 @@
     <color name="icon_orange">#F2994A</color>
     <color name="icon_purple">#6750A4</color>
     <color name="icon_amber">#F2B705</color>
+    <color name="icon_purple_light">#EDE7F5</color>
+    <color name="amber_text">#B26A00</color>
+    <color name="amber_bg">#FDF0DD</color>
+    <color name="green_bg">#E6F2E7</color>
+    <color name="red_error">#B3261E</color>
 </resources>

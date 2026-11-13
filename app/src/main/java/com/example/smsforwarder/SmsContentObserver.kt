@@ -7,7 +7,6 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Telephony
 import com.example.smsforwarder.util.AppLogger
-import com.example.smsforwarder.util.MessageDeduplicator
 import com.example.smsforwarder.util.SecurityUtils
 
 class SmsContentObserver(
@@ -97,9 +96,7 @@ class SmsContentObserver(
                         TAG,
                         "本机短信库捕获新短信(_id=$id) - 发送者: ${SecurityUtils.maskSensitiveContent(sender)}"
                     )
-                    if (MessageDeduplicator.isNewMessage(sender, body)) {
-                        onSmsCaptured(sender, body, date)
-                    }
+                    onSmsCaptured(sender, body, date)
                 }
             }
         } catch (e: SecurityException) {

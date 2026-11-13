@@ -5,12 +5,17 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
@@ -19,11 +24,14 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.smsforwarder.databinding.ActivityMainBinding
+import com.example.smsforwarder.databinding.ItemKeywordRankBinding
 import com.example.smsforwarder.util.BotManager
+import com.example.smsforwarder.util.StatsStore
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var botManager: BotManager
+    private var statMode = StatsStore.Mode.DAY
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,11 +50,23 @@ class MainActivity : AppCompatActivity() {
         binding.cardLogs.setOnClickListener {
             startActivity(Intent(this, LogActivity::class.java))
         }
+
+        binding.statModeGroup.check(binding.btnModeDay.id)
+        binding.statModeGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+            statMode = when (checkedId) {
+                binding.btnModeWeek.id -> StatsStore.Mode.WEEK
+                binding.btnModeMonth.id -> StatsStore.Mode.MONTH
+                else -> StatsStore.Mode.DAY
+            }
+            refreshStats()
+        }
     }
 
     override fun onResume() {
         super.onResume()
         refreshStatus()
+        refreshStats()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -76,7 +96,8 @@ class MainActivity : AppCompatActivity() {
                     append("版本：").append(BuildConfig.VERSION_NAME)
                     append("（versionCode ").append(BuildConfig.VERSION_CODE).append("）\n\n")
                     append("本机短信监听 → 量子密信群机器人转发。三通道冗余监听（系统广播 / 通知栏 / 短信库），")
-                    append("机器人配置、短信游标、去重指纹与运行日志全部仅保存在本机，无远程服务器。\n\n")
+                    append("关键词支持条件组（组内且、组间或）与排除词，首页提供转发趋势与关键词 Top5 统计。")
+                    append("全部配置、转发记录与日志只保存在本机，无远程服务器。\n\n")
                     append("包名：").append(packageName)
                 }
             )
@@ -87,22 +108,88 @@ class MainActivity : AppCompatActivity() {
     private fun refreshStatus() {
         val smsOk = isSmsPermGranted()
         val notifOk = isNotificationListenerEnabled()
-        val allBots = botManager.getAllBots()
-        val enabledBots = allBots.filter { it.isEnabled }
+        val batteryOk = isIgnoringBatteryOptimizations()
+        val enabledBots = botManager.getEnabledBots()
+        val today = StatsStore.todayCount(this)
 
-        binding.tvServiceSubtitle.text = "运行正常 · 已启用 ${enabledBots.size} 个机器人"
-        binding.tvPermDetails.text = buildString {
-            append("短信权限: ").append(if (smsOk) "已授权 ✓" else "未授权 ✗").append("\n")
-            append("通知监听: ").append(if (notifOk) "已开启 ✓" else "未开启 ✗").append("\n")
-            append("机器人总数: ").append(allBots.size).append("\n")
-            append("已启用: ").append(enabledBots.size)
+        binding.tvServiceSubtitle.text =
+            "已启用 ${enabledBots.size} 个机器人 · 今日已转发 $today 条"
+        binding.tvPermChips.text = buildChips(smsOk, notifOk, batteryOk)
+    }
+
+    private fun buildChips(smsOk: Boolean, notifOk: Boolean, batteryOk: Boolean): Spanned {
+        val chips = listOf(
+            "短信权限" to smsOk,
+            "通知监听" to notifOk,
+            "电池白名单" to batteryOk
+        )
+        val builder = SpannableString(
+            chips.joinToString("   ") { (name, ok) -> if (ok) "$name ✓" else "$name ✗" }
+        )
+        var cursor = 0
+        chips.forEach { (name, ok) ->
+            val text = if (ok) "$name ✓" else "$name ✗"
+            val color = if (ok) Color.parseColor("#2E7D32") else Color.parseColor("#B26A00")
+            builder.setSpan(
+                ForegroundColorSpan(color),
+                cursor,
+                cursor + text.length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            cursor += text.length + 3
         }
-        binding.tvEnabledBots.text = if (enabledBots.isEmpty()) {
-            "• 暂无已启用的机器人"
+        return builder
+    }
+
+    private fun refreshStats() {
+        val summary = StatsStore.summary(this, statMode)
+        binding.tvStatTotal.text = summary.total.toString()
+
+        if (summary.previousTotal > 0) {
+            val delta = ((summary.total - summary.previousTotal) * 100f / summary.previousTotal).toInt()
+            binding.tvStatDelta.text = if (delta >= 0) "较上期 +$delta%" else "较上期 $delta%"
+            binding.tvStatDelta.setTextColor(
+                ContextCompat.getColor(this, if (delta >= 0) R.color.green_ok else R.color.red_error)
+            )
         } else {
-            enabledBots.joinToString("\n") { "• ${it.name}" }
+            binding.tvStatDelta.text = "无上期数据"
+            binding.tvStatDelta.setTextColor(ContextCompat.getColor(this, R.color.text_helper))
+        }
+
+        binding.chartTrend.setData(summary.labels, summary.values)
+        renderTop5(summary.top)
+
+        binding.tvStatNote.text = when (statMode) {
+            StatsStore.Mode.DAY -> "近 14 天 · 数据来自本机转发记录"
+            StatsStore.Mode.WEEK -> "近 8 周（按周一开始） · 数据来自本机转发记录"
+            StatsStore.Mode.MONTH -> "近 6 个月 · 数据来自本机转发记录"
         }
     }
+
+    private fun renderTop5(top: List<Pair<String, Int>>) {
+        binding.llTop5.removeAllViews()
+        if (top.isEmpty()) {
+            val empty = android.widget.TextView(this).apply {
+                text = "本周期还没有转发记录"
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_helper))
+                textSize = 12f
+                setPadding(0, dp(6), 0, 0)
+            }
+            binding.llTop5.addView(empty)
+            return
+        }
+        val max = top.first().second.coerceAtLeast(1)
+        val inflater = LayoutInflater.from(this)
+        top.forEach { (keyword, count) ->
+            val row = ItemKeywordRankBinding.inflate(inflater, binding.llTop5, false)
+            row.tvKeywordName.text = keyword
+            row.pbKeyword.progress = ((count * 100) / max).coerceAtLeast(4)
+            row.tvKeywordCount.text = count.toString()
+            binding.llTop5.addView(row.root)
+        }
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun showTestDialog() {
         val enabledCount = botManager.getEnabledBots().size
@@ -117,7 +204,8 @@ class MainActivity : AppCompatActivity() {
                         this,
                         "10690000",
                         "【测试平台】您的验证码是 372814，3分钟内有效。",
-                        System.currentTimeMillis()
+                        System.currentTimeMillis(),
+                        channel = "测试"
                     )
                     Toast.makeText(this, "已向匹配的启用机器人发送测试消息", Toast.LENGTH_SHORT).show()
                 }

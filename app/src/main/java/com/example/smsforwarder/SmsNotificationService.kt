@@ -5,7 +5,6 @@ import android.content.ComponentName
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.example.smsforwarder.util.AppLogger
-import com.example.smsforwarder.util.MessageDeduplicator
 import com.example.smsforwarder.util.SecurityUtils
 
 class SmsNotificationService : NotificationListenerService() {
@@ -76,14 +75,13 @@ class SmsNotificationService : NotificationListenerService() {
             "通知捕获($pkg) - 标题: ${SecurityUtils.maskSensitiveContent(sender)}, 内容: ${SecurityUtils.maskSensitiveContent(content)}"
         )
 
-        if (!MessageDeduplicator.isNewMessage(sender, content)) return
-
         SmsForwardService.startForward(
             this,
             sender,
             content,
             sbn.postTime,
-            fromNotificationTitle = true
+            fromNotificationTitle = true,
+            channel = "通知监听"
         )
     }
 

@@ -3,42 +3,74 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F3EDF7"
+    android:background="@color/bg_page"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:paddingStart="12dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="10dp">
 
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:cardCornerRadius="12dp">
+        app:cardCornerRadius="14dp"
+        app:cardElevation="1dp">
 
         <TextView
             android:id="@+id/tvSelfCheck"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:lineSpacingExtra="4dp"
-            android:padding="14dp"
-            android:textSize="14sp" />
+            android:padding="12dp"
+            android:textSize="12sp" />
     </com.google.android.material.card.MaterialCardView>
 
-    <Button
-        android:id="@+id/btnClearLogs"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="清空日志" />
-
-    <ScrollView
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginTop="8dp"
-        android:layout_weight="1">
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="6dp"
+        android:orientation="horizontal">
 
         <TextView
-            android:id="@+id/tvLogs"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:fontFamily="monospace"
-            android:textSize="12sp" />
-    </ScrollView>
+            android:layout_weight="1"
+            android:text="转发事件"
+            android:textColor="@color/purple_primary"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="整段高亮 · 最新在上"
+            android:textColor="@color/text_helper"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerEvents"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingBottom="6dp" />
+
+    <TextView
+        android:id="@+id/tvEmptyEvents"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="还没有转发事件，收到短信后这里会显示完整链路"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp"
+        android:visibility="gone" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnClearLogs"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:text="清空日志" />
 </LinearLayout>

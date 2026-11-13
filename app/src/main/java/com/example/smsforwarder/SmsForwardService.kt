@@ -15,10 +15,15 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Telephony
 import androidx.core.app.NotificationCompat
+import com.example.smsforwarder.model.MatchResult
+import com.example.smsforwarder.model.QuantumBot
 import com.example.smsforwarder.network.QuantumBotClient
 import com.example.smsforwarder.util.AppLogger
 import com.example.smsforwarder.util.BotManager
+import com.example.smsforwarder.util.EventLogStore
+import com.example.smsforwarder.util.MessageDeduplicator
 import com.example.smsforwarder.util.SecurityUtils
+import com.example.smsforwarder.util.StatsStore
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -37,16 +42,13 @@ class SmsForwardService : Service() {
         const val EXTRA_BOT_ID = "bot_id"
         const val EXTRA_KEEP_ALIVE = "keep_alive"
         const val EXTRA_FROM_NOTIFICATION = "from_notification"
+        const val EXTRA_CHANNEL = "capture_channel"
 
         fun startKeepAlive(context: Context) {
             val intent = Intent(context, SmsForwardService::class.java).apply {
                 putExtra(EXTRA_KEEP_ALIVE, true)
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            startServiceCompat(context, intent)
         }
 
         fun startForward(
@@ -56,7 +58,8 @@ class SmsForwardService : Service() {
             timestamp: Long,
             isTest: Boolean = false,
             botId: String? = null,
-            fromNotificationTitle: Boolean = false
+            fromNotificationTitle: Boolean = false,
+            channel: String = "系统广播"
         ) {
             val intent = Intent(context, SmsForwardService::class.java).apply {
                 putExtra(EXTRA_SENDER, sender)
@@ -65,7 +68,12 @@ class SmsForwardService : Service() {
                 putExtra(EXTRA_IS_TEST, isTest)
                 if (!botId.isNullOrBlank()) putExtra(EXTRA_BOT_ID, botId)
                 putExtra(EXTRA_FROM_NOTIFICATION, fromNotificationTitle)
+                putExtra(EXTRA_CHANNEL, channel)
             }
+            startServiceCompat(context, intent)
+        }
+
+        private fun startServiceCompat(context: Context, intent: Intent) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
@@ -98,7 +106,7 @@ class SmsForwardService : Service() {
         registerDynamicSmsReceiver()
         registerSmsDatabaseObserver()
         pollHandler.postDelayed(pollRunnable, POLL_INTERVAL_MS)
-        AppLogger.d(TAG, "前台服务已启动（动态广播 + 短信库监听 + 4秒本地兜底轮询）")
+        AppLogger.d(TAG, "前台服务已启动（广播接收器 + 通知监听 + 短信库游标 + 4秒兜底轮询）")
     }
 
     private fun registerDynamicSmsReceiver() {
@@ -120,7 +128,7 @@ class SmsForwardService : Service() {
     private fun registerSmsDatabaseObserver() {
         if (smsObserver != null) return
         val observer = SmsContentObserver(this) { sender, body, timestamp ->
-            forwardSms(sender, body, timestamp, fromNotificationTitle = false)
+            forwardSms(sender, body, timestamp, fromNotificationTitle = false, channel = "短信库")
         }
         observer.initBaselineId()
         try {
@@ -142,41 +150,103 @@ class SmsForwardService : Service() {
         val isTest = intent.getBooleanExtra(EXTRA_IS_TEST, false)
         val botId = intent.getStringExtra(EXTRA_BOT_ID)
         val fromNotif = intent.getBooleanExtra(EXTRA_FROM_NOTIFICATION, false)
+        val channel = intent.getStringExtra(EXTRA_CHANNEL).orEmpty().ifBlank { "系统广播" }
 
         if (content.isBlank()) return START_STICKY
 
-        AppLogger.d(
-            TAG,
-            "收到转发请求（${if (isTest) "测试" else "真实短信"}）- 发送方: ${SecurityUtils.maskSensitiveContent(sender)}"
-        )
-
-        if (isTest && !botId.isNullOrBlank()) {
-            val bot = botManager.getBotById(botId)
+        if (isTest) {
+            val bot = botId?.let { botManager.getBotById(it) }
             if (bot != null && bot.isEnabled) {
-                sendMessage(bot, sender, content, timestamp)
+                sendTestMessage(bot, sender, content, timestamp)
             } else {
                 AppLogger.e(TAG, "测试模式：指定的机器人不存在或未启用")
             }
         } else {
-            forwardSms(sender, content, timestamp, fromNotif)
+            forwardSms(sender, content, timestamp, fromNotif, channel)
         }
 
         return START_STICKY
     }
 
-    private fun forwardSms(sender: String, content: String, timestamp: Long, fromNotificationTitle: Boolean) {
-        val matchedBots = botManager.getMatchingBots(sender, content, fromNotificationTitle)
-        if (matchedBots.isEmpty()) {
-            AppLogger.d(TAG, "未匹配任何启用机器人，跳过转发")
+    /**
+     * 事件级转发：一条短信 → 一个事件，完整记录 捕获 / 号码过滤 / 规则判定 / 去重 / 推送。
+     */
+    private fun forwardSms(
+        sender: String,
+        content: String,
+        timestamp: Long,
+        fromNotificationTitle: Boolean,
+        channel: String
+    ) {
+        val eventId = EventLogStore.newId()
+        val steps = mutableListOf<EventLogStore.Step>()
+        val matchedBots = mutableListOf<Pair<QuantumBot, MatchResult>>()
+        val maskedSender = SecurityUtils.maskSensitiveContent(sender)
+        val maskedBody = SecurityUtils.maskSensitiveContent(content)
+
+        fun step(level: String, text: String) {
+            steps.add(EventLogStore.Step(level, text))
+        }
+
+        step("info", "[$channel] 捕获短信：${maskedBody.take(56)}")
+
+        val enabledBots = botManager.getEnabledBots()
+        if (enabledBots.isEmpty()) {
+            step("fail", "没有已启用的机器人 → 短信丢弃")
+            persistEvent(eventId, maskedSender, maskedBody, channel, false, steps, emptyList())
+            AppLogger.d(TAG, "无已启用机器人，短信丢弃")
             return
         }
-        AppLogger.d(TAG, "匹配 ${matchedBots.size} 个机器人，开始转发")
-        for (bot in matchedBots) {
-            sendMessage(bot, sender, content, timestamp)
+
+        if (!MessageDeduplicator.isNewMessage(sender, content)) {
+            step("fail", "10 秒内重复正文，去重跳过")
+            persistEvent(eventId, maskedSender, maskedBody, channel, false, steps, emptyList())
+            return
+        }
+
+        for (bot in enabledBots) {
+            if (!bot.matchesSender(sender, fromNotificationTitle)) {
+                step("fail", "「${bot.name}」号码过滤未命中（监听 ${bot.getSenderFilterList().joinToString(" / ")}）")
+                continue
+            }
+            val rule = bot.getRule()
+            val result = rule.matches(content)
+            step("info", "「${bot.name}」规则：${rule.summary()}")
+            if (!result.matched) {
+                step("fail", "「${bot.name}」${result.reason} → 跳过")
+                continue
+            }
+            step("pass", "「${bot.name}」${result.reason}")
+            matchedBots.add(bot to result)
+        }
+
+        if (matchedBots.isEmpty()) {
+            step("fail", "本次事件结束：未转发")
+            persistEvent(eventId, maskedSender, maskedBody, channel, false, steps, emptyList())
+            AppLogger.d(TAG, "未匹配任何机器人，跳过转发")
+            return
+        }
+
+        persistEvent(eventId, maskedSender, maskedBody, channel, true, steps, matchedBots.map { it.first.name })
+
+        for ((bot, result) in matchedBots) {
+            val keyword = result.keywords.joinToString(" 且 ")
+            enqueueSend(bot, sender, content, timestamp, eventId, steps, maskedSender, maskedBody, channel, keyword)
         }
     }
 
-    private fun sendMessage(bot: com.example.smsforwarder.model.QuantumBot, sender: String, content: String, timestamp: Long) {
+    private fun enqueueSend(
+        bot: QuantumBot,
+        sender: String,
+        content: String,
+        timestamp: Long,
+        eventId: String,
+        steps: MutableList<EventLogStore.Step>,
+        maskedSender: String,
+        maskedBody: String,
+        channel: String,
+        keyword: String
+    ) {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         val wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SmsForwarder::SendLock")
         wakeLock.acquire(15_000L)
@@ -190,9 +260,88 @@ class SmsForwardService : Service() {
             append("💬 内容:\n").append(content)
         }
 
-        QuantumBotClient.sendText(bot, formattedText) { _, _ ->
+        AppLogger.d(TAG, "「${bot.name}」推送中（关键词：${keyword.ifBlank { "全部短信" }}）")
+        QuantumBotClient.sendText(bot, formattedText) { success, message ->
             if (wakeLock.isHeld) wakeLock.release()
+            val step = if (success) {
+                StatsStore.record(this, keyword.ifBlank { "全部短信" })
+                AppLogger.d(TAG, "「${bot.name}」推送成功")
+                EventLogStore.Step(
+                    "pass",
+                    "「${bot.name}」推送成功 · HTTP 200 · 关键词「${keyword.ifBlank { "全部短信" }}」"
+                )
+            } else {
+                AppLogger.e(TAG, "「${bot.name}」推送失败")
+                EventLogStore.Step(
+                    "fail",
+                    "「${bot.name}」推送失败：${SecurityUtils.maskSensitiveContent(message).take(60)}"
+                )
+            }
+            synchronized(steps) { steps.add(step) }
+            updateStoredEvent(eventId, maskedSender, maskedBody, channel, bot, steps)
         }
+    }
+
+    private fun sendTestMessage(bot: QuantumBot, sender: String, content: String, timestamp: Long) {
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SmsForwarder::TestLock")
+        wakeLock.acquire(15_000L)
+        val timeStr = dateFormat.get()?.format(Date(timestamp)) ?: ""
+        val formattedText = "📩 收到短信通知\n━━━━━━━━━━━━━━\n📱 发送方: $sender\n⏰ 时间: $timeStr\n💬 内容:\n$content"
+        QuantumBotClient.sendText(bot, formattedText) { success, _ ->
+            if (wakeLock.isHeld) wakeLock.release()
+            if (success) {
+                AppLogger.d(TAG, "测试消息发送成功：${bot.name}")
+            } else {
+                AppLogger.e(TAG, "测试消息发送失败：${bot.name}")
+            }
+        }
+    }
+
+    private fun persistEvent(
+        eventId: String,
+        sender: String,
+        body: String,
+        channel: String,
+        sent: Boolean,
+        steps: List<EventLogStore.Step>,
+        bots: List<String>
+    ) {
+        EventLogStore.save(
+            this,
+            EventLogStore.Event(
+                id = eventId,
+                at = System.currentTimeMillis(),
+                sender = sender,
+                body = body.take(80),
+                channel = channel,
+                sent = sent,
+                steps = steps.toList(),
+                bots = bots
+            )
+        )
+    }
+
+    private fun updateStoredEvent(
+        eventId: String,
+        sender: String,
+        body: String,
+        channel: String,
+        bot: QuantumBot,
+        steps: List<EventLogStore.Step>
+    ) {
+        val current = EventLogStore.all(this).firstOrNull { it.id == eventId } ?: return
+        val botNames = (current.bots + bot.name).distinct()
+        EventLogStore.save(
+            this,
+            current.copy(
+                sender = sender,
+                body = body.take(80),
+                channel = channel,
+                bots = botNames,
+                steps = steps.toList()
+            )
+        )
     }
 
     private fun createNotificationChannel() {

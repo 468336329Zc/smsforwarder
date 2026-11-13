@@ -7,14 +7,19 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.smsforwarder.adapter.EventAdapter
 import com.example.smsforwarder.databinding.ActivityLogBinding
 import com.example.smsforwarder.util.AppLogger
 import com.example.smsforwarder.util.BotManager
+import com.example.smsforwarder.util.EventLogStore
 
 class LogActivity : AppCompatActivity() {
     private lateinit var binding: ActivityLogBinding
+    private lateinit var adapter: EventAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,12 +27,28 @@ class LogActivity : AppCompatActivity() {
         setContentView(binding.root)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        refreshSelfCheck()
-        refreshLogs()
+        adapter = EventAdapter()
+        binding.recyclerEvents.layoutManager = LinearLayoutManager(this)
+        binding.recyclerEvents.adapter = adapter
+
         binding.btnClearLogs.setOnClickListener {
+            EventLogStore.clear(this)
             AppLogger.clear()
-            refreshLogs()
+            refresh()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refresh()
+    }
+
+    private fun refresh() {
+        refreshSelfCheck()
+        val events = EventLogStore.all(this)
+        val sysLogs = AppLogger.readAll().takeLast(12).joinToString("\n")
+        adapter.submit(events, sysLogs)
+        binding.tvEmptyEvents.visibility = if (events.isEmpty()) View.VISIBLE else View.GONE
     }
 
     private fun refreshSelfCheck() {
@@ -40,16 +61,11 @@ class LogActivity : AppCompatActivity() {
         val enabledBots = BotManager(this).getEnabledBots().size
 
         binding.tvSelfCheck.text = buildString {
-            append("== 自检信息 ==\n\n")
-            append("短信权限: ").append(if (smsOk) "已授权 ✓" else "未授权 ✗").append("\n")
-            append("通知监听: ").append(if (notifOk) "已开启 ✓" else "未开启 ✗").append("\n")
-            append("电池优化白名单: ").append(if (batteryOk) "已加入 ✓" else "未加入 ✗").append("\n")
-            append("启用机器人数: ").append(enabledBots)
+            append("短信权限 ").append(if (smsOk) "✓" else "✗")
+            append("   通知监听 ").append(if (notifOk) "✓" else "✗")
+            append("   电池白名单 ").append(if (batteryOk) "✓" else "✗")
+            append("\n已启用 ").append(enabledBots).append(" 个机器人 · 事件 ")
+            append(EventLogStore.all(this@LogActivity).size).append(" 条")
         }
-    }
-
-    private fun refreshLogs() {
-        val lines = AppLogger.readAll()
-        binding.tvLogs.text = if (lines.isEmpty()) "暂无运行日志" else lines.reversed().joinToString("\n\n")
     }
 }

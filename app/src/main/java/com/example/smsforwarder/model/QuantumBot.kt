@@ -11,11 +11,13 @@ data class QuantumBot(
     val isEnabled: Boolean = true,
     val isMentioned: Boolean = false,
     val mentionType: Int = 2,
-    val mentionedMobiles: String = ""
+    val mentionedMobiles: String = "",
+    /** 新版关键词规则（JSON），为空时回退到旧版 keywords */
+    val ruleJson: String = ""
 ) {
-    companion object {
-        private val WHITESPACE_REGEX = Regex("\\s+")
-    }
+    /** 当前生效的规则：优先解析 ruleJson，旧配置自动迁移成「任一关键词」 */
+    fun getRule(): KeywordRule =
+        KeywordRule.fromJson(ruleJson) ?: KeywordRule.legacy(keywords)
 
     fun getKeywordList(): List<String> =
         keywords.split(",", "，", "\n")
@@ -46,13 +48,13 @@ data class QuantumBot(
         }
     }
 
-    fun matchesContent(content: String): Boolean {
-        val kwList = getKeywordList()
-        if (kwList.isEmpty()) return true
-        val normalizedContent = content.replace(WHITESPACE_REGEX, " ").lowercase()
-        return kwList.any { kw ->
-            val normalizedKw = kw.replace(WHITESPACE_REGEX, " ").lowercase()
-            normalizedContent.contains(normalizedKw)
+    /** 兼容旧调用点：只判断是否命中 */
+    fun matchesContent(content: String): Boolean = getRule().matches(content).matched
+
+    fun matches(sender: String, content: String, isFromNotificationTitle: Boolean = false): MatchResult {
+        if (!matchesSender(sender, isFromNotificationTitle)) {
+            return MatchResult(false, "号码过滤未命中")
         }
+        return getRule().matches(content)
     }
 }
