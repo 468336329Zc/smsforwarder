@@ -11,12 +11,14 @@ android {
         applicationId = "com.example.smsforwarder"
         minSdk = 26
         targetSdk = 34
-        versionCode = 300
-        versionName = "3.0"
+        versionCode = 301
+        versionName = "3.0.1"
     }
 
     buildTypes {
         release {
+            // 用 debug 签名，保证 release APK 可直接安装（此前 unsigned 包在 MIUI 上会报 packageInfo is null）
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

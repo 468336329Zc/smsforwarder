@@ -62,7 +62,7 @@ jobs:
         run: |
           mkdir -p release-assets
           cp app/build/outputs/apk/debug/app-debug.apk "release-assets/SMSForwarder-${GITHUB_REF_NAME}-debug.apk"
-          cp app/build/outputs/apk/release/app-release-unsigned.apk "release-assets/SMSForwarder-${GITHUB_REF_NAME}-release-unsigned.apk"
+          cp app/build/outputs/apk/release/app-release.apk "release-assets/SMSForwarder-${GITHUB_REF_NAME}-release.apk"
           NOTES="release-notes/${GITHUB_REF_NAME}.md"
           if [ ! -f "$NOTES" ]; then
             echo "::error::缺少版本说明文件 $NOTES，请先补充再打 tag"
@@ -81,6 +81,6 @@ jobs:
           overwrite_files: true
           files: |
             release-assets/SMSForwarder-*-debug.apk
-            release-assets/SMSForwarder-*-release-unsigned.apk
+            release-assets/SMSForwarder-*-release.apk
           draft: false
           prerelease: false
