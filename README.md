@@ -1,6 +1,6 @@
 # SMSForwarder · 短信转发器
 
-当前版本 **v3.0.4**（versionCode 304）。版本更新与安装包见 [Releases](https://github.com/468336329Zc/smsforwarder/releases)。
+当前版本 **v3.0.5**（versionCode 305）。版本更新与安装包见 [Releases](https://github.com/468336329Zc/smsforwarder/releases)。
 
 把手机收到的短信，实时推送到量子密信群机器人。全程在本机运行：机器人配置、关键词规则、转发事件、统计记录与运行日志都只保存在手机本地，不经过任何第三方服务器。
 

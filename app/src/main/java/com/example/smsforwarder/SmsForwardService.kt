@@ -190,17 +190,21 @@ class SmsForwardService : Service() {
 
         step("info", "[$channel] 捕获短信：${maskedBody.take(56)}")
 
+        // 同一条短信会被三通道重复捕获：其它通道已成功转发过，直接跳过（不写事件，避免日志里出现"未转发"假象）
+        if (MessageDeduplicator.isAlreadyForwarded(content)) {
+            AppLogger.d(TAG, "[$channel] 同一短信已由其它通道转发，本次仅去重")
+            return
+        }
+        if (MessageDeduplicator.isDuplicateCapture(content)) {
+            AppLogger.d(TAG, "[$channel] 10 秒内重复捕获同一文本，本次仅去重")
+            return
+        }
+
         val enabledBots = botManager.getEnabledBots()
         if (enabledBots.isEmpty()) {
             step("fail", "没有已启用的机器人 → 短信丢弃")
             persistEvent(eventId, maskedSender, maskedBody, channel, false, steps, emptyList())
             AppLogger.d(TAG, "无已启用机器人，短信丢弃")
-            return
-        }
-
-        if (!MessageDeduplicator.isNewMessage(sender, content)) {
-            step("fail", "10 秒内重复正文，去重跳过")
-            persistEvent(eventId, maskedSender, maskedBody, channel, false, steps, emptyList())
             return
         }
 
@@ -265,6 +269,7 @@ class SmsForwardService : Service() {
             if (wakeLock.isHeld) wakeLock.release()
             val step = if (success) {
                 StatsStore.record(this, keyword.ifBlank { "全部短信" })
+                MessageDeduplicator.markForwarded(content)
                 AppLogger.d(TAG, "「${bot.name}」推送成功")
                 EventLogStore.Step(
                     "pass",
