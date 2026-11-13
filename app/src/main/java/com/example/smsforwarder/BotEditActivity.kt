@@ -3,7 +3,9 @@ package com.example.smsforwarder
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
+import android.widget.EditText
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.example.smsforwarder.databinding.ActivityBotEditBinding
 import com.example.smsforwarder.databinding.ItemRuleGroupBinding
@@ -96,6 +98,7 @@ class BotEditActivity : AppCompatActivity() {
     }
 
     private fun renderAll() {
+        commitVisibleInputs()
         val groupMode = mode == RuleMode.GROUPS
         binding.llGroups.visibility = if (groupMode) View.VISIBLE else View.GONE
         binding.llAnyContainer.visibility = if (groupMode) View.GONE else View.VISIBLE
@@ -155,13 +158,10 @@ class BotEditActivity : AppCompatActivity() {
             }
             groupView.chipGroupTerms.addView(chip)
         }
+        groupView.etNewTerm.tag = terms
         val addTerm = {
-            val input = groupView.etNewTerm.text.toString().trim()
-            if (input.isNotEmpty()) {
-                if (!terms.contains(input)) terms.add(input)
-                groupView.etNewTerm.setText("")
-                renderAll()
-            }
+            addTermsFromText(groupView, terms)
+            renderAll()
         }
         groupView.btnAddTerm.setOnClickListener { addTerm() }
         groupView.etNewTerm.setOnEditorActionListener { _, _, _ ->
@@ -171,6 +171,34 @@ class BotEditActivity : AppCompatActivity() {
         groupView.etNewTerm.setOnFocusChangeListener { _, hasFocus ->
             if (!hasFocus) updateSummary()
         }
+    }
+
+    /** 把输入框里还没点「添加」的词提交进对应条件组，避免切换模式 / 新增分组 / 保存时丢失 */
+    private fun commitVisibleInputs() {
+        listOf(binding.llGroups, binding.llAnyContainer).forEach { container ->
+            for (index in 0 until container.childCount) {
+                val root = container.getChildAt(index)
+                val editText = root.findViewById<EditText>(R.id.etNewTerm) ?: continue
+                val terms = editText.tag as? MutableList<String> ?: continue
+                addTermsFromText(editText, terms)
+            }
+        }
+    }
+
+    /** 支持逗号 / 顿号 / 换行一次录入多个词 */
+    private fun addTermsFromText(editText: EditText, terms: MutableList<String>) {
+        val inputs = editText.text.toString()
+            .split(",", "，", "、", "\n")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        inputs.forEach { term ->
+            if (!terms.contains(term)) terms.add(term)
+        }
+        editText.setText("")
+    }
+
+    private fun addTermsFromText(groupView: ItemRuleGroupBinding, terms: MutableList<String>) {
+        addTermsFromText(groupView.etNewTerm, terms)
     }
 
     private fun buildRule(): KeywordRule {
@@ -210,11 +238,29 @@ class BotEditActivity : AppCompatActivity() {
             return
         }
 
+        commitVisibleInputs()
         val rule = buildRule()
-        if (rule.summary() != "全部短信" && mode == RuleMode.GROUPS && rule.groups.isEmpty()) {
-            Toast.makeText(this, "请至少给一个条件组添加关键词", Toast.LENGTH_SHORT).show()
+        if (mode == RuleMode.GROUPS && rule.groups.isEmpty()) {
+            AlertDialog.Builder(this)
+                .setTitle("还没有关键词")
+                .setMessage("当前条件组里没有任何关键词，保存后该机器人会转发全部短信。确定保存？")
+                .setPositiveButton("仍然保存") { _, _ -> persist(rule, name, url, senders, enabled, isMentioned, mobiles) }
+                .setNegativeButton("返回编辑", null)
+                .show()
             return
         }
+        persist(rule, name, url, senders, enabled, isMentioned, mobiles)
+    }
+
+    private fun persist(
+        rule: KeywordRule,
+        name: String,
+        url: String,
+        senders: String,
+        enabled: Boolean,
+        isMentioned: Boolean,
+        mobiles: String
+    ) {
 
         val legacyKeywords = if (rule.mode == RuleMode.ANY) {
             rule.terms.joinToString(", ")

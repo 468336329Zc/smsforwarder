@@ -26,6 +26,7 @@ import androidx.core.content.ContextCompat
 import com.example.smsforwarder.databinding.ActivityMainBinding
 import com.example.smsforwarder.databinding.ItemKeywordRankBinding
 import com.example.smsforwarder.util.BotManager
+import com.example.smsforwarder.util.NotificationAccess
 import com.example.smsforwarder.util.StatsStore
 
 class MainActivity : AppCompatActivity() {
@@ -297,11 +298,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun isNotificationListenerEnabled(): Boolean {
-        val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners") ?: return false
-        val cn = ComponentName(this, SmsNotificationService::class.java).flattenToString()
-        return flat.contains(cn)
-    }
+    private fun isNotificationListenerEnabled(): Boolean = NotificationAccess.isEnabled(this)
 
     private fun isIgnoringBatteryOptimizations(): Boolean {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager

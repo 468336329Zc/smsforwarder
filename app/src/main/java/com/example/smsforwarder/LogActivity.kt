@@ -16,6 +16,7 @@ import com.example.smsforwarder.databinding.ActivityLogBinding
 import com.example.smsforwarder.util.AppLogger
 import com.example.smsforwarder.util.BotManager
 import com.example.smsforwarder.util.EventLogStore
+import com.example.smsforwarder.util.NotificationAccess
 
 class LogActivity : AppCompatActivity() {
     private lateinit var binding: ActivityLogBinding
@@ -54,8 +55,7 @@ class LogActivity : AppCompatActivity() {
     private fun refreshSelfCheck() {
         val smsOk = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS) ==
             PackageManager.PERMISSION_GRANTED
-        val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners").orEmpty()
-        val notifOk = flat.contains(ComponentName(this, SmsNotificationService::class.java).flattenToString())
+        val notifOk = NotificationAccess.isEnabled(this)
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         val batteryOk = pm.isIgnoringBatteryOptimizations(packageName)
         val enabledBots = BotManager(this).getEnabledBots().size
