@@ -11,6 +11,8 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
+import android.view.Menu
+import android.view.MenuItem
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -45,6 +47,41 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshStatus()
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_manage_bots -> {
+                startActivity(Intent(this, BotListActivity::class.java))
+                true
+            }
+            R.id.action_about -> {
+                showAboutDialog()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    private fun showAboutDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("关于")
+            .setMessage(
+                buildString {
+                    append("版本：").append(BuildConfig.VERSION_NAME)
+                    append("（versionCode ").append(BuildConfig.VERSION_CODE).append("）\n\n")
+                    append("本机短信监听 → 量子密信群机器人转发。三通道冗余监听（系统广播 / 通知栏 / 短信库），")
+                    append("机器人配置、短信游标、去重指纹与运行日志全部仅保存在本机，无远程服务器。\n\n")
+                    append("包名：").append(packageName)
+                }
+            )
+            .setPositiveButton("知道了", null)
+            .show()
     }
 
     private fun refreshStatus() {

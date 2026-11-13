@@ -2,13 +2,29 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F3EDF7">
+    android:background="@color/bg_page">
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerBots"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="12dp" />
+        android:clipToPadding="false"
+        android:paddingStart="12dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="90dp" />
+
+    <TextView
+        android:id="@+id/tvEmptyBots"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:lineSpacingExtra="6dp"
+        android:text="还没有配置机器人\n点击右下角 + 添加第一个"
+        android:textColor="@color/text_secondary"
+        android:textSize="14sp"
+        android:visibility="gone" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAddBot"

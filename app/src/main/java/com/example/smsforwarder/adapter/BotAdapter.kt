@@ -2,6 +2,7 @@ package com.example.smsforwarder.adapter
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.PopupMenu
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -14,6 +15,12 @@ class BotAdapter(
     private val onDelete: (QuantumBot) -> Unit,
     private val onToggle: (QuantumBot, Boolean) -> Unit
 ) : ListAdapter<QuantumBot, BotAdapter.BotViewHolder>(DiffCallback) {
+
+    companion object {
+        private const val MENU_EDIT = 1
+        private const val MENU_TEST = 2
+        private const val MENU_DELETE = 3
+    }
 
     object DiffCallback : DiffUtil.ItemCallback<QuantumBot>() {
         override fun areItemsTheSame(oldItem: QuantumBot, newItem: QuantumBot) = oldItem.id == newItem.id
@@ -29,7 +36,22 @@ class BotAdapter(
             binding.switchEnabled.setOnCheckedChangeListener { _, checked -> onToggle(bot, checked) }
             binding.root.setOnClickListener { onEdit(bot) }
             binding.btnTest.setOnClickListener { onTest(bot) }
-            binding.btnDelete.setOnClickListener { onDelete(bot) }
+            binding.btnMore.setOnClickListener { anchor ->
+                PopupMenu(anchor.context, anchor).apply {
+                    menu.add(0, MENU_EDIT, 0, "编辑")
+                    menu.add(0, MENU_TEST, 1, "测试发送")
+                    menu.add(0, MENU_DELETE, 2, "删除")
+                    setOnMenuItemClickListener { item ->
+                        when (item.itemId) {
+                            MENU_EDIT -> { onEdit(bot); true }
+                            MENU_TEST -> { onTest(bot); true }
+                            MENU_DELETE -> { onDelete(bot); true }
+                            else -> false
+                        }
+                    }
+                    show()
+                }
+            }
         }
     }
 

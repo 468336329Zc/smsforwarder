@@ -2,7 +2,9 @@ package com.example.smsforwarder
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.smsforwarder.adapter.BotAdapter
@@ -37,8 +39,15 @@ class BotListActivity : AppCompatActivity() {
                 Toast.makeText(this, "已向「${bot.name}」发送测试消息", Toast.LENGTH_SHORT).show()
             },
             onDelete = { bot ->
-                botManager.deleteBot(bot.id)
-                refreshList()
+                AlertDialog.Builder(this)
+                    .setTitle("删除机器人")
+                    .setMessage("确定删除「${bot.name}」？删除后该机器人的配置与关键词将一并移除。")
+                    .setPositiveButton("删除") { _, _ ->
+                        botManager.deleteBot(bot.id)
+                        refreshList()
+                    }
+                    .setNegativeButton("取消", null)
+                    .show()
             },
             onToggle = { bot, checked ->
                 botManager.toggleBot(bot.id, checked)
@@ -59,6 +68,8 @@ class BotListActivity : AppCompatActivity() {
     }
 
     private fun refreshList() {
-        adapter.submitList(botManager.getAllBots())
+        val bots = botManager.getAllBots()
+        adapter.submitList(bots)
+        binding.tvEmptyBots.visibility = if (bots.isEmpty()) View.VISIBLE else View.GONE
     }
 }
