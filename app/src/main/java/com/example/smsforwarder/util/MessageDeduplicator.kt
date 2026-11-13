@@ -7,6 +7,7 @@ object MessageDeduplicator {
     private const val TAG = "MessageDeduplicator"
     private const val EXPIRE_TIME_MS = 10_000L
     private const val CLEAN_INTERVAL_MS = 30_000L
+    private val WHITESPACE_REGEX = Regex("\\s+")
 
     private val processedMessages = ConcurrentHashMap<String, Long>()
     @Volatile
@@ -30,7 +31,7 @@ object MessageDeduplicator {
     }
 
     private fun generateFingerprint(content: String): String {
-        val normalizedContent = content.trim().replace("\s+".toRegex(), " ")
+        val normalizedContent = content.trim().replace(WHITESPACE_REGEX, " ")
         val digest = MessageDigest.getInstance("SHA-256").digest(normalizedContent.toByteArray(Charsets.UTF_8))
         return digest.joinToString("") { "%02x".format(it) }.take(24)
     }

@@ -13,6 +13,10 @@ data class QuantumBot(
     val mentionType: Int = 2,
     val mentionedMobiles: String = ""
 ) {
+    companion object {
+        private val WHITESPACE_REGEX = Regex("\\s+")
+    }
+
     fun getKeywordList(): List<String> =
         keywords.split(",", "，", "\n")
             .map { it.trim() }
@@ -45,9 +49,9 @@ data class QuantumBot(
     fun matchesContent(content: String): Boolean {
         val kwList = getKeywordList()
         if (kwList.isEmpty()) return true
-        val normalizedContent = content.replace("\s+".toRegex(), " ").lowercase()
+        val normalizedContent = content.replace(WHITESPACE_REGEX, " ").lowercase()
         return kwList.any { kw ->
-            val normalizedKw = kw.replace("\s+".toRegex(), " ").lowercase()
+            val normalizedKw = kw.replace(WHITESPACE_REGEX, " ").lowercase()
             normalizedContent.contains(normalizedKw)
         }
     }

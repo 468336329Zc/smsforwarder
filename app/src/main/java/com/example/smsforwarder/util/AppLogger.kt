@@ -23,7 +23,7 @@ object AppLogger {
 
     fun init(context: Context) {
         if (logFile != null) return
-        synchronized(writeLock) {
+        synchronized<Unit>(writeLock) {
             if (logFile == null) {
                 val dir = File(context.applicationContext.filesDir, LOG_DIR_NAME)
                 dir.mkdirs()
@@ -46,7 +46,7 @@ object AppLogger {
         val file = logFile ?: return
         val ts = timeFormat.get()?.format(Date()) ?: ""
         val line = "$ts [$tag] $message\n"
-        synchronized(writeLock) {
+        synchronized<Unit>(writeLock) {
             try {
                 file.appendText(line)
                 writesSinceTrim++
@@ -85,7 +85,7 @@ object AppLogger {
 
     fun clear() {
         val file = logFile ?: return
-        synchronized(writeLock) {
+        synchronized<Unit>(writeLock) {
             try {
                 file.writeText("")
             } catch (t: Throwable) {
