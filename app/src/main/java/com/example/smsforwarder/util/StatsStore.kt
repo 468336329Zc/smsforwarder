@@ -58,6 +58,16 @@ object StatsStore {
         }
     }
 
+    /** 导入备份时整体恢复历史记录（保留原始时间戳） */
+    fun replaceAll(context: Context, records: List<Record>) {
+        synchronized(lock) {
+            val now = System.currentTimeMillis()
+            val cutoff = now - KEEP_DAYS.toLong() * 24 * 60 * 60 * 1000
+            val kept = records.filter { it.at >= cutoff }.sortedBy { it.at }.takeLast(MAX_RECORDS)
+            prefs(context).edit().putString(KEY_RECORDS, gson.toJson(kept)).apply()
+        }
+    }
+
     fun clear(context: Context) {
         prefs(context).edit().remove(KEY_RECORDS).apply()
     }

@@ -67,6 +67,11 @@ class BotManager(context: Context) {
         updateBot(bot.copy(isEnabled = enabled))
     }
 
+    /** 用导入的配置整体替换本机配置 */
+    fun replaceAll(bots: List<QuantumBot>) {
+        saveBots(bots.toList())
+    }
+
     fun getBotById(id: String): QuantumBot? = getAllBots().firstOrNull { it.id == id }
 
     fun getEnabledBots(): List<QuantumBot> = getAllBots().filter { it.isEnabled }

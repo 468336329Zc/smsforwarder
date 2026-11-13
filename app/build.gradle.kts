@@ -11,14 +11,27 @@ android {
         applicationId = "com.example.smsforwarder"
         minSdk = 26
         targetSdk = 34
-        versionCode = 301
-        versionName = "3.0.1"
+        versionCode = 302
+        versionName = "3.0.2"
+    }
+
+    signingConfigs {
+        // 固定签名：所有版本（debug / release）共用同一密钥，
+        // 以后覆盖安装即为普通升级，SharedPreferences 里的机器人配置、统计与事件记录都会保留。
+        create("stable") {
+            storeFile = file("../keystore/smsforwarder-release.jks")
+            storePassword = "smsforwarder2024"
+            keyAlias = "smsforwarder"
+            keyPassword = "smsforwarder2024"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("stable")
+        }
         release {
-            // 用 debug 签名，保证 release APK 可直接安装（此前 unsigned 包在 MIUI 上会报 packageInfo is null）
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("stable")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
