@@ -3,9 +3,9 @@ name: Android CI Build APK
 # 发版流程（约定）：
 #   1. 修改 app/build.gradle.kts 的 versionCode / versionName
 #   2. 功能有变动时同步更新 README.md
-#   3. git tag -a v<versionName> -F <release-notes.md>  （tag 附注即 Release 说明）
-#   4. git push origin main && git push origin v<versionName>
-# 推送 v* tag 后，本 workflow 会自动构建 APK 并创建 GitHub Release、挂载 APK 产物。
+#   3. 在 release-notes/v<versionName>.md 写本版版本说明
+#   4. git tag -a v<versionName> -m "<versionName>" && git push origin main && git push origin v<versionName>
+# 推送 v* tag 后，本 workflow 会自动构建 APK、创建 GitHub Release 并挂载 APK 产物。
 
 on:
   push:
@@ -63,7 +63,12 @@ jobs:
           mkdir -p release-assets
           cp app/build/outputs/apk/debug/app-debug.apk "release-assets/SMSForwarder-${GITHUB_REF_NAME}-debug.apk"
           cp app/build/outputs/apk/release/app-release-unsigned.apk "release-assets/SMSForwarder-${GITHUB_REF_NAME}-release-unsigned.apk"
-          git tag -l --format='%(contents)' "${GITHUB_REF_NAME}" > release-assets/release-notes.md
+          NOTES="release-notes/${GITHUB_REF_NAME}.md"
+          if [ ! -f "$NOTES" ]; then
+            echo "::error::缺少版本说明文件 $NOTES，请先补充再打 tag"
+            exit 1
+          fi
+          cp "$NOTES" release-assets/release-notes.md
           echo "--- release notes ---"
           cat release-assets/release-notes.md
 
@@ -73,6 +78,7 @@ jobs:
         with:
           name: ${{ github.ref_name }}
           body_path: release-assets/release-notes.md
+          overwrite_files: true
           files: |
             release-assets/SMSForwarder-*-debug.apk
             release-assets/SMSForwarder-*-release-unsigned.apk
