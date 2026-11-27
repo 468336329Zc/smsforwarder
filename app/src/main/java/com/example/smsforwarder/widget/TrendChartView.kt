@@ -42,6 +42,12 @@ class TrendChartView @JvmOverloads constructor(
         color = Color.parseColor("#8A8A8E")
         textSize = sp(10f)
     }
+    private val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#4A4458")
+        textSize = sp(10f)
+        textAlign = Paint.Align.CENTER
+        isFakeBoldText = true
+    }
 
     private var labels: List<String> = emptyList()
     private var values: List<Int> = emptyList()
@@ -56,7 +62,7 @@ class TrendChartView @JvmOverloads constructor(
         super.onDraw(canvas)
         val padLeft = dp(22f)
         val padRight = dp(10f)
-        val padTop = dp(8f)
+        val padTop = dp(20f)
         val padBottom = dp(18f)
         val plotWidth = width - padLeft - padRight
         val plotHeight = height - padTop - padBottom
@@ -100,6 +106,10 @@ class TrendChartView @JvmOverloads constructor(
             val y = yAt(value)
             canvas.drawCircle(x, y, dp(3.4f), dotHaloPaint)
             canvas.drawCircle(x, y, dp(2.2f), dotPaint)
+            val label = value.toString()
+            val labelWidth = valuePaint.measureText(label)
+            val tx = x.coerceIn(padLeft + labelWidth / 2f, width - padRight - labelWidth / 2f)
+            canvas.drawText(label, tx, y - dp(6f), valuePaint)
         }
 
         if (labels.isNotEmpty()) {

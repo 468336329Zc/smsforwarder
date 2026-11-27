@@ -79,30 +79,18 @@ object StatsStore {
 
     fun summary(context: Context, mode: Mode): Summary {
         val records = load(context)
-        val count = when (mode) {
-            Mode.DAY -> 14
-            Mode.WEEK -> 8
-            Mode.MONTH -> 6
-        }
-        val starts = ArrayList<Long>(count)
-        for (i in count - 1 downTo 0) {
-            starts.add(bucketStart(System.currentTimeMillis(), mode, i))
-        }
-        val ranges = ArrayList<Pair<Long, Long>>(count)
-        for (i in 0 until count) {
-            val start = starts[i]
-            val end = if (i < count - 1) starts[i + 1] else dayStart(System.currentTimeMillis() + 24 * 60 * 60 * 1000L)
-            ranges.add(start to end)
-        }
-        val values = ranges.map { (s, e) -> records.count { it.at in s until e } }
-        val labels = starts.map { formatLabel(it, mode) }
+        val now = System.currentTimeMillis()
 
-        val windowStart = starts.firstOrNull() ?: System.currentTimeMillis()
-        val windowEnd = ranges.last().second
-        val span = (windowEnd - windowStart).coerceAtLeast(1L)
-        val previousTotal = records.count { it.at in (windowStart - span) until windowStart }
+        val periodStart = periodStart(now, mode)
+        val total = records.count { it.at in periodStart..now }
+        val previousTotal = previousPeriodTotal(records, now, mode)
 
-        val top = records.filter { it.at in windowStart until windowEnd }
+        val ranges = chartRanges(now, mode)
+        val values = ranges.map { (start, end) -> records.count { it.at in start until end } }
+        val labels = ranges.map { (start, _) -> formatLabel(start, mode) }
+
+        val windowStart = ranges.firstOrNull()?.first ?: periodStart
+        val top = records.filter { it.at in windowStart..now }
             .groupingBy { it.keyword.ifBlank { "全部短信" } }
             .eachCount()
             .entries
@@ -113,10 +101,97 @@ object StatsStore {
         return Summary(
             labels = labels,
             values = values,
-            total = values.sum(),
+            total = total,
             previousTotal = previousTotal,
             top = top
         )
+    }
+
+    /** 当前自然周期起点：日=今天 0 点；周=本周一 0 点；月=本月 1 号 0 点 */
+    private fun periodStart(now: Long, mode: Mode): Long {
+        val cal = Calendar.getInstance().apply { timeInMillis = dayStart(now) }
+        when (mode) {
+            Mode.DAY -> return cal.timeInMillis
+            Mode.WEEK -> {
+                val offset = (cal.get(Calendar.DAY_OF_WEEK) + 5) % 7
+                cal.add(Calendar.DAY_OF_YEAR, -offset)
+                return cal.timeInMillis
+            }
+            Mode.MONTH -> {
+                cal.set(Calendar.DAY_OF_MONTH, 1)
+                return cal.timeInMillis
+            }
+        }
+    }
+
+    /** 折线图窗口：日=近 7 天；周=本月按周一切分的各周；月=近 6 个月 */
+    private fun chartRanges(now: Long, mode: Mode): List<Pair<Long, Long>> {
+        val dayMs = 24 * 60 * 60 * 1000L
+        return when (mode) {
+            Mode.DAY -> (6 downTo 0).map { i ->
+                val start = dayStart(now - i * dayMs)
+                start to start + dayMs
+            }
+            Mode.MONTH -> (5 downTo 0).map { i ->
+                val start = monthStart(now, i)
+                val end = monthStart(now, i - 1)
+                start to end
+            }
+            Mode.WEEK -> monthWeekRanges(now)
+        }
+    }
+
+    /** 本月按周一为界切成若干周（月初到第一个周一为第一周，不足 7 天） */
+    private fun monthWeekRanges(now: Long): List<Pair<Long, Long>> {
+        val dayMs = 24 * 60 * 60 * 1000L
+        val monthStartCal = Calendar.getInstance().apply {
+            timeInMillis = now
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val monthStart = monthStartCal.timeInMillis
+        val monthEnd = (monthStartCal.clone() as Calendar).apply { add(Calendar.MONTH, 1) }.timeInMillis
+        val firstMonday = monthStart + ((monthStartCal.get(Calendar.DAY_OF_WEEK) + 5) % 7) * dayMs
+
+        val starts = ArrayList<Long>()
+        var cursor = monthStart
+        var firstWeek = true
+        while (cursor < monthEnd) {
+            starts.add(cursor)
+            cursor += if (firstWeek && firstMonday > monthStart) firstMonday - monthStart else dayMs * 7
+            firstWeek = false
+        }
+        val ends = starts.drop(1) + monthEnd
+        return starts.zip(ends)
+    }
+
+    private fun previousPeriodTotal(records: List<Record>, now: Long, mode: Mode): Int {
+        val period = periodStart(now, mode)
+        val prevStart = when (mode) {
+            Mode.DAY -> period - 24 * 60 * 60 * 1000L
+            Mode.WEEK -> period - 7 * 24 * 60 * 60 * 1000L
+            Mode.MONTH -> {
+                val cal = Calendar.getInstance().apply { timeInMillis = period; add(Calendar.MONTH, -1) }
+                cal.timeInMillis
+            }
+        }
+        return records.count { it.at in prevStart until period }
+    }
+
+    private fun monthStart(now: Long, offsetMonths: Int): Long {
+        val cal = Calendar.getInstance().apply {
+            timeInMillis = now
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            add(Calendar.MONTH, -offsetMonths)
+        }
+        return cal.timeInMillis
     }
 
     fun all(context: Context): List<Record> = load(context)
@@ -128,23 +203,6 @@ object StatsStore {
         set(Calendar.SECOND, 0)
         set(Calendar.MILLISECOND, 0)
     }.timeInMillis
-
-    private fun bucketStart(now: Long, mode: Mode, offset: Int): Long {
-        val cal = Calendar.getInstance().apply { timeInMillis = dayStart(now) }
-        when (mode) {
-            Mode.DAY -> cal.add(Calendar.DAY_OF_YEAR, -offset)
-            Mode.WEEK -> {
-                cal.add(Calendar.DAY_OF_YEAR, -offset * 7)
-                val weekOffset = (cal.get(Calendar.DAY_OF_WEEK) + 5) % 7 // 周一为一周起点
-                cal.add(Calendar.DAY_OF_YEAR, -weekOffset)
-            }
-            Mode.MONTH -> {
-                cal.set(Calendar.DAY_OF_MONTH, 1)
-                cal.add(Calendar.MONTH, -offset)
-            }
-        }
-        return cal.timeInMillis
-    }
 
     private fun formatLabel(ts: Long, mode: Mode): String {
         val cal = Calendar.getInstance().apply { timeInMillis = ts }
