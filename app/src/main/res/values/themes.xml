@@ -6,4 +6,9 @@
         <item name="colorSecondary">#6750A4</item>
         <item name="colorOnSecondary">#FFFFFF</item>
     </style>
+
+    <style name="Theme.SMSForwarder.NoActionBar" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="android:windowBackground">@color/kf_bg</item>
+        <item name="android:statusBarColor">@color/kf_bg</item>
+    </style>
 </resources>

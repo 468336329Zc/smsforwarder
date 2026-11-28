@@ -100,6 +100,13 @@ class SmsForwardService : Service() {
     override fun onCreate() {
         super.onCreate()
         AppLogger.init(this)
+
+        // 授权门：未激活不监听、不转发。
+        if (!com.example.smsforwarder.license.LicenseStore.isActive(this)) {
+            stopSelf()
+            return
+        }
+
         botManager = BotManager(this)
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, createNotification())
@@ -140,6 +147,10 @@ class SmsForwardService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!com.example.smsforwarder.license.LicenseStore.isActive(this)) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (intent == null || intent.getBooleanExtra(EXTRA_KEEP_ALIVE, false)) {
             return START_STICKY
         }

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- 设备码与激活记录不进云备份，避免换机/恢复后授权串机 -->
+    <exclude domain="sharedpref" path="device_prefs.xml" />
+    <exclude domain="sharedpref" path="license_state.xml" />
+</full-backup-content>

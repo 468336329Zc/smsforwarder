@@ -11,8 +11,8 @@ android {
         applicationId = "com.example.smsforwarder"
         minSdk = 26
         targetSdk = 34
-        versionCode = 306
-        versionName = "3.0.6"
+        versionCode = 307
+        versionName = "3.1.0"
     }
 
     signingConfigs {
@@ -63,4 +63,5 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
 }
