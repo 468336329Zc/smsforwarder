@@ -89,8 +89,8 @@ object StatsStore {
         val values = ranges.map { (start, end) -> records.count { it.at in start until end } }
         val labels = ranges.map { (start, _) -> formatLabel(start, mode) }
 
-        val windowStart = ranges.firstOrNull()?.first ?: periodStart
-        val top = records.filter { it.at in windowStart..now }
+        // 关键词排名与总数同口径：今日 / 本周 / 本月当前自然周期，不按折线图窗口放宽。
+        val top = records.filter { it.at in periodStart..now }
             .groupingBy { it.keyword.ifBlank { "全部短信" } }
             .eachCount()
             .entries

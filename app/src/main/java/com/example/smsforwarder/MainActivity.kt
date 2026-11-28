@@ -169,9 +169,9 @@ class MainActivity : AppCompatActivity() {
         renderTop5(summary.top)
 
         binding.tvStatNote.text = when (statMode) {
-            StatsStore.Mode.DAY -> "近 7 天 · 数据来自本机转发记录"
-            StatsStore.Mode.WEEK -> "本月各周（按周一开始） · 数据来自本机转发记录"
-            StatsStore.Mode.MONTH -> "近 6 个月 · 数据来自本机转发记录"
+            StatsStore.Mode.DAY -> "今日 · 数据来自本机转发记录"
+            StatsStore.Mode.WEEK -> "本周（周一起算） · 数据来自本机转发记录"
+            StatsStore.Mode.MONTH -> "本月 · 数据来自本机转发记录"
         }
     }
 

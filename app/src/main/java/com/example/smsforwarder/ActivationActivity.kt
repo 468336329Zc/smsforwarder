@@ -69,6 +69,7 @@ class ActivationActivity : AppCompatActivity() {
 
         bindDeviceCode()
         bindInput()
+        refreshState("")
         binding.copyDevice.setOnClickListener { copyDeviceCode() }
         binding.activateBtn.setOnClickListener { tryActivate() }
         binding.resultBtn.setOnClickListener { onResultAction() }
